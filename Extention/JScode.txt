@@ -1,0 +1,164 @@
+let myleads = []; 
+const inputBtn = document.getElementById("input-btn");
+const inputEl = document.getElementById("input-el");
+const ulEl = document.getElementById("ul-el");
+const deleteBtn = document.getElementById("delete-btn");
+const deleteSelectedBtn = document.getElementById("delete-selected-btn");
+const saveTabBtn = document.getElementById("save-tab-btn");
+
+
+// Load saved leads from chrome.storage when the extension is opened
+chrome.storage.sync.get(["leads"], function(result) {
+    if (result.leads) {
+        myleads = result.leads;
+        renderLeads();
+    }
+});
+
+// Add an event listener to the input button
+inputBtn.addEventListener("click", function() {
+    const inputValue = inputEl.value.trim();
+    console.log("Input value:", inputValue);
+    if (inputValue) {
+        myleads.push(inputValue);
+        //Save the updated leads array to chrome.storage
+        chrome.storage.sync.set({ leads: myleads }, function() {
+            renderLeads(); // List the updated leads
+            console.log("Current leads:", myleads);
+            alert("Input saved: " + inputValue);
+            inputEl.value = ""; // clear input field
+        });
+    } else {
+        console.log("Input field is empty.");
+    }
+});
+
+// Add an event listener to the input field to handle the Enter key
+inputEl.addEventListener("keydown", function(event) {
+    if (event.key === "Enter") {
+        inputBtn.click(); // simulate button click on Enter key
+    }
+});
+
+// Add an event listener to the delete selected button
+// This will remove all selected links from the list
+deleteSelectedBtn.addEventListener("click", function () {
+    const checkboxes = document.querySelectorAll(".lead-checkbox:checked");
+
+    if (checkboxes.length === 0) {
+        alert("NO links selected for deletion.");
+        return;
+    }
+
+    const indicesToRemove = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
+
+    // Sorting backwards to avoid index shifting issues
+    indicesToRemove.sort((a, b) => b - a).forEach(index => {
+        myleads.splice(index, 1);
+    });
+
+    chrome.storage.sync.set({ leads: myleads }, function () {
+        renderLeads();
+        alert("Selected links have been deleted.");
+    });
+});
+
+
+
+// Function to render the leads in the unordered list
+// This function clears the current list and repopulates it with the saved leads
+// It also adds a checkbox for each lead to allow for selection
+function renderLeads() {
+    ulEl.innerHTML = "";
+    for (let i = 0; i < myleads.length; i++) {
+        const li = document.createElement("li");
+
+        // Wrapper for checkboxes
+        const checkboxWrapper = document.createElement("div");
+        checkboxWrapper.className = "checkbox-wrapper";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "lead-checkbox";
+        checkbox.dataset.index = i; // Store the index for deletion
+
+        checkboxWrapper.appendChild(checkbox);
+
+        // Wrapper for links
+        const linkWrapper = document.createElement("div");
+        linkWrapper.className = "link-wrapper";
+
+        const a = document.createElement("a");
+        a.textContent = myleads[i];
+        a.href = myleads[i];
+        a.target = "_blank";
+
+        linkWrapper.appendChild(a);
+
+        // Append both wrappers to <li>
+        li.appendChild(checkboxWrapper);
+        li.appendChild(linkWrapper);
+        ulEl.appendChild(li);
+    }
+}
+// Event listener for the delete button
+// This will clear all saved leads and update the UI
+deleteBtn.addEventListener("click", function() {
+    // delete all leads
+    myleads = [];
+    chrome.storage.sync.remove("leads", function() {
+        console.log("All saved links have been deleted.");
+        renderLeads(); // Clear the list in the UI
+        alert("All saved links have been deleted.");
+    });
+});
+
+// Function to shorten a URL using TinyURL API
+// This function takes a long URL and a callback function as parameters
+function shortenUrl(longUrl, callback) {
+    fetch(`https://api.tinyurl.com/create`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer lizhlveH9IdfgKSre0GiiwoM7w0Af6MJzWk6ZSzOkXQFUUJRFip8uxeDgSpH" // Have to log in to TinyURL and get your API key
+        },
+        body: JSON.stringify({
+            url: longUrl,   
+            domain: "tiny.one" // or "tinyurl.com"
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.data && data.data.tiny_url) {
+            callback(data.data.tiny_url);
+        } else {
+            alert("Failed to shorten URL. Saving original.");
+            callback(longUrl); // fallback
+        }
+    })
+    .catch(() => {
+        alert("Error shortening URL.");
+        callback(longUrl); // fallback
+    });
+}
+
+// Event listener for the save tab button
+// This will save the current tab's URL to the leads list
+saveTabBtn.addEventListener("click", function () {
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        const currentUrl = tabs[0].url;
+
+        shortenUrl(currentUrl, function(shortUrl) {
+            if (myleads.includes(shortUrl)) {
+                alert("This URL is already saved.");
+                return;
+            }
+
+            myleads.push(shortUrl);
+            chrome.storage.sync.set({ leads: myleads }, function () {
+                renderLeads();
+                alert("Shortened link saved: " + shortUrl);
+            });
+        });
+    });
+});

@@ -1,0 +1,210 @@
+let myleads = [];
+const inputBtn = document.getElementById("input-btn");
+const inputEl = document.getElementById("input-el");
+const ulEl = document.getElementById("ul-el");
+const deleteBtn = document.getElementById("delete-btn");
+const deleteSelectedBtn = document.getElementById("delete-selected-btn");
+const saveTabBtn = document.getElementById("save-tab-btn");
+
+chrome.storage.sync.get(["leads"], ({ leads }) => {
+    if (leads) {
+        myleads = leads;
+        renderLeads();
+    }
+});
+
+inputBtn.addEventListener("click", async function () {
+    const inputValue = inputEl.value.trim();
+    if (!inputValue) return;
+
+    if (isDuplicate(inputValue)) {
+        alert("This URL is already saved.");
+        return;
+    }
+
+    try {
+        const title = await fetchPageTitleAsync(inputValue);
+        const newLead = { url: inputValue, title };
+        myleads.push(newLead);
+
+        await saveLeads();
+        renderLeads();
+        alert("Input saved: " + inputValue);
+        inputEl.value = "";
+    } catch {
+        alert("Failed to save input.");
+    }
+});
+
+inputEl.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") inputBtn.click();
+});
+
+deleteSelectedBtn.addEventListener("click", async function () {
+    const checkboxes = document.querySelectorAll(".lead-checkbox:checked");
+    if (checkboxes.length === 0) {
+        alert("NO links selected for deletion.");
+        return;
+    }
+
+    const indicesToRemove = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
+    indicesToRemove.sort((a, b) => b - a).forEach(index => myleads.splice(index, 1));
+
+    await saveLeads();
+    renderLeads();
+    alert("Selected links have been deleted.");
+});
+
+deleteBtn.addEventListener("click", async function () {
+    myleads = [];
+    await chrome.storage.sync.remove("leads");
+    renderLeads();
+    alert("All saved links have been deleted.");
+});
+
+saveTabBtn.addEventListener("click", async function () {
+    chrome.tabs.query({ active: true, currentWindow: true }, async function (tabs) {
+        const { url: currentUrl, title: pageTitle } = tabs[0];
+        const shortUrl = await shortenUrlAsync(currentUrl);
+
+        if (isDuplicate(shortUrl)) {
+            alert("This URL is already saved.");
+            return;
+        }
+
+        myleads.push({ url: shortUrl, title: pageTitle, originalUrl: currentUrl });
+        await saveLeads();
+        renderLeads();
+        alert("Shortened link saved: " + shortUrl);
+    });
+});
+
+function isDuplicate(url) {
+    return myleads.some(lead => {
+        if (typeof lead === "object" && lead !== null) return lead.url === url;
+        return lead === url;
+    });
+}
+
+function extractHostname(url) {
+    try {
+        return new URL(url).hostname.replace("www.", "");
+    } catch {
+        return url;
+    }
+}
+
+function renderLeads() {
+    ulEl.innerHTML = "";
+
+    myleads.forEach((lead, i) => {
+        const li = document.createElement("li");
+        const checkboxWrapper = document.createElement("div");
+        checkboxWrapper.className = "checkbox-wrapper";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "lead-checkbox";
+        checkbox.dataset.index = i;
+        checkboxWrapper.appendChild(checkbox);
+
+        const linkWrapper = document.createElement("div");
+        linkWrapper.className = "link-wrapper";
+
+        const a = document.createElement("a");
+        const { url, title, originalUrl } = typeof lead === "object" && lead !== null ? {
+            url: lead.url,
+            title: lead.title || extractHostname(lead.url),
+            originalUrl: lead.originalUrl || lead.url
+        } : {
+            url: lead,
+            title: extractHostname(lead),
+            originalUrl: lead
+        };
+
+        a.href = url;
+        a.target = "_blank";
+
+        const favicon = document.createElement("img");
+        favicon.src = `https://www.google.com/s2/favicons?domain=${originalUrl}`;
+        favicon.style.width = "16px";
+        favicon.style.height = "16px";
+        favicon.style.marginRight = "8px";
+        favicon.style.verticalAlign = "middle";
+
+        a.appendChild(favicon);
+        a.appendChild(document.createTextNode(title));
+
+        linkWrapper.appendChild(a);
+        li.appendChild(checkboxWrapper);
+        li.appendChild(linkWrapper);
+        ulEl.appendChild(li);
+    });
+}
+
+function fetchPageTitleAsync(url) {
+    return fetch(url)
+        .then(res => res.text())
+        .then(html => {
+            const doc = new DOMParser().parseFromString(html, "text/html");
+            const title = doc.querySelector("title");
+            return title ? title.textContent : extractHostname(url);
+        })
+        .catch(() => extractHostname(url));
+}
+
+function shortenUrlAsync(longUrl) {
+    return fetch("https://api.tinyurl.com/create", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer lizhlveH9IdfgKSre0GiiwoM7w0Af6MJzWk6ZSzOkXQFUUJRFip8uxeDgSpH"
+        },
+        body: JSON.stringify({ url: longUrl, domain: "tiny.one" })
+    })
+        .then(res => res.json())
+        .then(data => data?.data?.tiny_url || longUrl)
+        .catch(() => longUrl);
+}
+
+async function saveLeads() {
+    return new Promise(resolve => {
+        chrome.storage.sync.set({ leads: myleads }, resolve);
+    });
+}
+
+document.getElementById("export-btn").addEventListener("click", function () {
+    chrome.storage.sync.get(["leads"], function ({ leads = [] }) {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(leads));
+        const a = document.createElement("a");
+        a.href = dataStr;
+        a.download = "saved_links.json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    });
+});
+
+document.getElementById("import-btn").addEventListener("click", function () {
+    const file = document.getElementById("import-file").files[0];
+    if (!file) return alert("File not selected!");
+
+    const reader = new FileReader();
+    reader.onload = async function (e) {
+        try {
+            const imported = JSON.parse(e.target.result);
+            if (!Array.isArray(imported)) return alert("Invalid file format.");
+
+            const { leads: existing = [] } = await new Promise(resolve => chrome.storage.sync.get(["leads"], resolve));
+            const merged = [...existing, ...imported];
+
+            chrome.storage.sync.set({ leads: merged }, function () {
+                alert("Import successful!");
+                location.reload();
+            });
+        } catch {
+            alert("File read error.");
+        }
+    };
+    reader.readAsText(file);
+});

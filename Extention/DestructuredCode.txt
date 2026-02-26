@@ -1,0 +1,216 @@
+let myleads = [];
+const inputBtn = document.getElementById("input-btn");
+const inputEl = document.getElementById("input-el");
+const ulEl = document.getElementById("ul-el");
+const deleteBtn = document.getElementById("delete-btn");
+const deleteSelectedBtn = document.getElementById("delete-selected-btn");
+const saveTabBtn = document.getElementById("save-tab-btn");
+const exportBtn = document.getElementById("export-btn");
+const importBtn = document.getElementById("import-btn");
+const importFileInput = document.getElementById("import-file");
+
+// Load saved leads
+chrome.storage.sync.get(["leads"], ({ leads }) => {
+    if (leads) {
+        myleads = leads;
+        renderLeads();
+    }
+});
+
+inputBtn.addEventListener("click", () => {
+    const inputValue = inputEl.value.trim();
+    if (!inputValue) return;
+
+    const alreadyExists = myleads.some(({ url }) => url === inputValue || url === inputValue);
+    if (alreadyExists) {
+        alert("This URL is already saved.");
+        return;
+    }
+
+    fetchPageTitle(inputValue, (title) => {
+        myleads.push({ url: inputValue, title });
+        chrome.storage.sync.set({ leads: myleads }, () => {
+            renderLeads();
+            alert(`Input saved: ${inputValue}`);
+            inputEl.value = "";
+        });
+    });
+});
+
+inputEl.addEventListener("keydown", ({ key }) => {
+    if (key === "Enter") inputBtn.click();
+});
+
+deleteSelectedBtn.addEventListener("click", () => {
+    const checkboxes = [...document.querySelectorAll(".lead-checkbox:checked")];
+    if (!checkboxes.length) {
+        alert("NO links selected for deletion.");
+        return;
+    }
+
+    const indicesToRemove = checkboxes.map(({ dataset: { index } }) => parseInt(index));
+    indicesToRemove.sort((a, b) => b - a).forEach((index) => myleads.splice(index, 1));
+
+    chrome.storage.sync.set({ leads: myleads }, () => {
+        renderLeads();
+        alert("Selected links have been deleted.");
+    });
+});
+
+function extractHostname(url) {
+    try {
+        return new URL(url).hostname.replace("www.", "");
+    } catch {
+        return url;
+    }
+}
+
+function renderLeads() {
+    ulEl.innerHTML = "";
+    myleads.forEach((lead, i) => {
+        const li = document.createElement("li");
+
+        const checkboxWrapper = document.createElement("div");
+        checkboxWrapper.className = "checkbox-wrapper";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "lead-checkbox";
+        checkbox.dataset.index = i;
+        checkboxWrapper.appendChild(checkbox);
+
+        const linkWrapper = document.createElement("div");
+        linkWrapper.className = "link-wrapper";
+
+        let url, title, originalUrl;
+        if (typeof lead === "object" && lead !== null) {
+            ({ url, title = extractHostname(lead.url), originalUrl = lead.url } = lead);
+        } else {
+            url = lead;
+            title = extractHostname(lead);
+            originalUrl = url;
+        }
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+
+        const favicon = document.createElement("img");
+        favicon.src = `https://www.google.com/s2/favicons?domain=${originalUrl}`;
+        favicon.style.width = "16px";
+        favicon.style.height = "16px";
+        favicon.style.marginRight = "8px";
+        favicon.style.verticalAlign = "middle";
+
+        const siteName = document.createTextNode(title);
+        a.appendChild(favicon);
+        a.appendChild(siteName);
+
+        linkWrapper.appendChild(a);
+        li.appendChild(checkboxWrapper);
+        li.appendChild(linkWrapper);
+        ulEl.appendChild(li);
+    });
+}
+
+deleteBtn.addEventListener("click", () => {
+    myleads = [];
+    chrome.storage.sync.remove("leads", () => {
+        renderLeads();
+        alert("All saved links have been deleted.");
+    });
+});
+
+function shortenUrl(longUrl, callback) {
+    fetch(`https://api.tinyurl.com/create`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer lizhlveH9IdfgKSre0GiiwoM7w0Af6MJzWk6ZSzOkXQFUUJRFip8uxeDgSpH"
+        },
+        body: JSON.stringify({ url: longUrl, domain: "tiny.one" })
+    })
+        .then((response) => response.json())
+        .then(({ data }) => {
+            if (data?.tiny_url) callback(data.tiny_url);
+            else {
+                alert("Failed to shorten URL. Saving original.");
+                callback(longUrl);
+            }
+        })
+        .catch(() => {
+            alert("Error shortening URL.");
+            callback(longUrl);
+        });
+}
+
+saveTabBtn.addEventListener("click", () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, ([{ url: currentUrl, title: pageTitle }]) => {
+        shortenUrl(currentUrl, (shortUrl) => {
+            if (myleads.some(({ url }) => url === shortUrl)) {
+                alert("This URL is already saved.");
+                return;
+            }
+
+            myleads.push({ url: shortUrl, title: pageTitle, originalUrl: currentUrl });
+            chrome.storage.sync.set({ leads: myleads }, () => {
+                renderLeads();
+                alert(`Shortened link saved: ${shortUrl}`);
+            });
+        });
+    });
+});
+
+function fetchPageTitle(url, callback) {
+    fetch(url)
+        .then((response) => response.text())
+        .then((html) => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            const title = doc.querySelector("title");
+            callback(title ? title.textContent : extractHostname(url));
+        })
+        .catch(() => callback(extractHostname(url)));
+}
+
+exportBtn.addEventListener("click", () => {
+    chrome.storage.sync.get(["leads"], ({ leads }) => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(leads || []));
+        const downloadAnchorNode = document.createElement("a");
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "saved_links.json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    });
+});
+
+importBtn.addEventListener("click", () => {
+    const file = importFileInput.files[0];
+    if (!file) {
+        alert("Nisi izabrao fajl!");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = ({ target: { result } }) => {
+        try {
+            const importedLinks = JSON.parse(result);
+            if (!Array.isArray(importedLinks)) {
+                alert("Neispravan format fajla.");
+                return;
+            }
+
+            chrome.storage.sync.get(["leads"], ({ leads = [] }) => {
+                const mergedLinks = [...new Set([...leads, ...importedLinks])];
+                chrome.storage.sync.set({ leads: mergedLinks }, () => {
+                    alert("Uspešno importovano!");
+                    location.reload();
+                });
+            });
+        } catch {
+            alert("Greška pri čitanju fajla.");
+        }
+    };
+    reader.readAsText(file);
+});
