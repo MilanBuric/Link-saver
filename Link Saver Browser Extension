@@ -1,0 +1,32 @@
+Project Description:
+
+Overview:
+-This project is a Chrome extension designed to help users save, manage, and organize their favorite URLs efficiently.
+-It allows users to input URLs manually, save the currently active tab, delete selected or all saved links, and even shorten URLs using the TinyURL API for cleaner sharing.
+
+Objectives:
+The main goal of this project was to create a simple yet functional tool for tracking and managing web links in a convenient browser extension interface. Key objectives included:
+Allowing users to quickly save links manually or directly from the active browser tab.
+Providing the ability to delete individual, selected, or all saved links.
+Implementing URL shortening to make saved links more compact and shareable.
+Persisting the saved links using Chrome’s storage.sync API so that links remain accessible across browser sessions.
+
+Technologies Used:
+JavaScript (ES6) – core logic for managing links, handling events, and interacting with APIs.
+HTML & CSS – user interface design and layout for buttons, input fields, checkboxes, and the link list.
+Chrome Extension APIs – specifically chrome.storage.sync for storing data, and chrome.tabs to access the currently active tab.
+TinyURL API – for shortening URLs to create more manageable links.
+
+How It Works:
+Saving Links: Users can type a URL into an input field and click the "Save" button or press Enter. The URL is added to an array and saved in Chrome storage.
+Saving Current Tab: Clicking the "Save Tab" button automatically grabs the URL of the currently active tab, shortens it using the TinyURL API, and stores it.
+Rendering Links: The extension dynamically creates a list of all saved links, each with a clickable link and a checkbox for selection.
+
+Deleting Links: Users can delete selected links via checkboxes or remove all links at once using the "Delete All" button. The storage is updated immediately after deletion.
+
+Persistent Storage: All URLs are saved using chrome.storage.sync, ensuring that links persist even after the browser is closed and reopened.
+
+Additional Features:
+URL shortening improves readability and makes links easier to share.
+Alerts provide immediate feedback to the user when a link is saved, deleted, or if an error occurs.
+The interface supports keyboard interactions (e.g., pressing Enter to save a link).
