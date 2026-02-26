@@ -1,5 +1,8 @@
 Link Saver
 
+<img width="796" height="597" alt="image" src="https://github.com/user-attachments/assets/8c193a15-3f42-4d54-be8b-3997582f7d43" />
+
+
 Overview
 Link Saver is a lightweight and practical Chrome extension designed to help users efficiently save, organize, and manage web links.
 The extension allows users to manually input URLs, save the currently active browser tab, selectively delete stored links, remove all saved links, and shorten URLs using the TinyURL API for improved readability and sharing.
