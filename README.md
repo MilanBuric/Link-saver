@@ -1,84 +1,88 @@
-Link Saver
+# Link Saver
 
-<img width="796" height="597" alt="image" src="https://github.com/user-attachments/assets/8c193a15-3f42-4d54-be8b-3997582f7d43" />
+<img width="796" height="597" alt="Link Saver popup UI" src="https://github.com/user-attachments/assets/8c193a15-3f42-4d54-be8b-3997582f7d43" />
 
+## Overview
 
+Link Saver is a Chrome extension for saving, auto-organizing, and exporting links from any page. It saves the current tab or a manually entered URL, automatically sorts each link into a category, and lets you browse, re-file, or bulk-delete links from a clean, dark-themed popup.
 
-Overview:
+Categorization happens in two layers: a free, instant set of domain rules runs first, and if a link doesn't match any rule, it can optionally be sent to Google Gemini to pick (or invent) a category. Both are optional — the extension works fully offline with just the domain rules.
 
-  Link Saver is a lightweight and practical Chrome extension designed to help users efficiently save, organize, and manage web links.
-  The extension allows users to manually input URLs, save the currently active browser tab, selectively delete stored links, remove all saved links, and shorten URLs using the TinyURL API for improved readability and sharing.
+## Objectives
 
-Objectives:
+- Efficient link management inside a compact popup interface
+- Automatic, low-effort organization instead of one long flat list
+- Integration with Chrome Extension APIs (`storage`, `tabs`)
+- Persistent local storage that survives browser restarts
+- Optional external API integrations (TinyURL, Gemini) that are never required to use the extension
 
-  The primary goal of this project was to develop a clean and functional browser extension that demonstrates:
-  Efficient link management within a compact popup interface
-  Integration with Chrome Extension APIs
-  Persistent client-side data storage
-  External API integration for URL shortening
+## Technologies Used
 
-Key functional objectives include:
+- **JavaScript (ES6)** — core logic, DOM rendering, event handling
+- **HTML5 / CSS3** — popup structure and dark UI styling
+- **Chrome Extension APIs (Manifest V3)**
+  - `chrome.storage.local` — persistent storage for links, categories, and API keys
+  - `chrome.tabs` — reading the active tab's URL for "Save current tab"
+- **TinyURL API** — optional URL shortening for saved tabs
+- **Google Gemini API** — optional AI-assisted categorization
+- **Fetch API** — all HTTP requests to the above services
 
-  Allowing users to manually save URLs
-  Saving the currently active browser tab with a single click
-  Supporting selective and bulk deletion of stored links
-  Persisting data across browser sessions using chrome.storage.sync
-  Automatically shortening URLs via the TinyURL API
+## Features
 
-Technologies Used:
+**Saving links**
 
-  JavaScript (ES6) – Core application logic, DOM manipulation, and event handling
-  HTML5 – Popup structure and UI layout
-  CSS3 – Styling and layout design
-  Chrome Extension APIs
-  chrome.storage.sync – Persistent cross-session storage
-  chrome.tabs – Accessing the active browser tab
-  TinyURL API – External service integration for URL shortening
-  Fetch API – Handling asynchronous HTTP requests
+- Save any URL by typing/pasting it into the input field
+- Save the current tab in one click (shortened via TinyURL if a key is set)
+- Duplicate links are skipped automatically
 
-How It Works:
+**Categories**
 
-  Saving Links Manually:
+- Links are auto-sorted using domain rules (e.g. `github.com` → Development, `youtube.com` → Video) across built-in categories: Development, Gaming, Video, Social, Shopping, Docs & Tools, News & Reading, Other
+- If nothing matches and a Gemini API key is set, the link is classified by AI, which can also invent new categories on the fly
+- Categories are shown as a color-coded, count-badged list on the home screen; tapping one opens its links
+- Custom categories can be created manually, and empty/unwanted categories can be deleted (their links move to "Other")
+- Any individual link can be manually moved to a different category from a dropdown
 
-  Users can enter a URL into the input field and click the "Save" button or press Enter.
-  The URL is validated, added to an internal array, and stored using chrome.storage.sync.
+**Managing saved links**
 
-  Saving the Active Tab:
+- Each link shows its favicon and title, and opens in a new tab on click
+- Select one or more links via checkboxes and delete just those
+- Delete all links within a category at once
+- Toast notifications confirm actions instead of blocking alerts
 
-  By clicking the "Save Tab" button, the extension retrieves the current tab’s URL using chrome.tabs.query.
-  The URL is then shortened via the TinyURL API before being saved to storage.
+**Data portability**
 
-  Rendering Links:
+- Export all saved links as a JSON file
+- Import a JSON file of links, with automatic deduplication (AI categorization is skipped during import to avoid API bursts — rule-based sorting still applies, and links can be re-filed manually afterward)
 
-  All stored links are dynamically rendered into a list. Each entry includes:
-  A clickable hyperlink (opens in a new tab)
-  A checkbox for selection
-  The interface updates automatically whenever the stored data changes.
+**Settings**
 
-  Deleting Links:
+- Optional TinyURL API key, used only for "Save current tab"
+- Optional Google Gemini API key, used only as a fallback categorizer when domain rules don't match
+- Both keys are stored locally on-device only, never transmitted anywhere except their respective APIs
 
-  Users can:
-  Delete selected links using checkboxes
-  Remove all saved links using the "Delete All" button
-  The internal data structure and Chrome storage are updated immediately after deletion.
-  
-  Persistent Storage:
-  
-  All links are stored using chrome.storage.sync, ensuring data persistence even after the browser is closed and reopened.
+## How It Works
 
-Additional Features:
+1. **Saving** — A URL is validated, optionally shortened (tab saves only), categorized (domain rules → Gemini fallback), and added to storage with a generated ID.
+2. **Categorizing** — `matchDomainRule()` checks the URL's hostname against a table of known domains per category. If nothing matches and an AI key is present, `classifyWithAI()` asks Gemini to pick an existing category or propose a short new one.
+3. **Rendering** — The popup has two views: a category list (home) and a category detail view showing that category's links. Both re-render from the in-memory state whenever it changes.
+4. **Persisting** — Links and categories are written to `chrome.storage.local` after every change, so state survives popup close/reopen and browser restarts.
+5. **Migrating old data** — On load, any previously saved links missing an `id` or `category` (from before these features existed) are backfilled automatically, with AI calls capped during this one-time pass.
 
-  Duplicate link prevention
-  Real-time UI updates
-  Error handling for API failures
-  Keyboard support (Enter key for faster input)
-  User feedback via alert notifications
-  JSON export functionality
-  JSON import with merge support
+## Project Structure
 
-Future Improvements:
+```
+Extention/
+├── index.html       # Popup markup
+├── index.css         # Dark theme styling
+├── index.js          # All extension logic
+├── manifest.json      # MV3 manifest
+└── icons/             # Extension icons
+```
 
-  Implement link categorization and tagging
-  Add filtering and search functionality
-  Improve UI/UX design
-  Replace alert-based feedback with modern notification components
+## Future Improvements
+
+- Search/filter across all saved links
+- Drag-and-drop reordering within a category
+- Sync categorization rules across devices
+- Replace `confirm()`/`prompt()` dialogs with in-popup modals
