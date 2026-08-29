@@ -1,6 +1,12 @@
 # Link Saver
 
-<img width="796" height="597" alt="Link Saver popup UI" src="https://github.com/user-attachments/assets/8c193a15-3f42-4d54-be8b-3997582f7d43" />
+### How it looks now
+
+<img width="440" alt="Link Saver current UI - categorized dark theme" src="Extention/Images/how-it-looks-now.png" />
+
+### How it used to look
+
+<img width="669" alt="Link Saver original UI - flat list" src="Extention/Images/how-it-used-to-look.png" />
 
 ## Overview
 
