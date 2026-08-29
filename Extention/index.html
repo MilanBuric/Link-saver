@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="index.css" />
+    <title>Link Saver</title>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <img src="icons/icon-48.png" alt="" class="brand-icon" />
+        <h1>Link Saver</h1>
+      </div>
+      <button
+        id="settings-btn"
+        class="icon-btn"
+        title="Settings"
+        aria-label="Settings"
+      >
+        ⚙
+      </button>
+    </header>
+
+    <!-- Settings panel -->
+    <section id="settings-panel" class="settings-panel hidden">
+      <label for="api-key-input">TinyURL API key (optional)</label>
+      <p class="hint">
+        Used only for "Save current tab". Get a free key at
+        <a href="https://tinyurl.com/app/dev" target="_blank" rel="noopener"
+          >tinyurl.com/app/dev</a
+        >.
+      </p>
+      <div class="settings-row">
+        <input
+          type="password"
+          id="api-key-input"
+          placeholder="Paste your TinyURL API key"
+        />
+        <button id="save-key-btn">Save</button>
+      </div>
+      <p id="key-status" class="key-status"></p>
+
+      <hr class="divider" />
+
+      <label for="ai-key-input">Google Gemini API key (optional)</label>
+      <p class="hint">
+        New links are sorted into categories by domain rules first (free,
+        instant). If a link doesn't match any rule and a key is set here, it's
+        sent to Gemini to pick or suggest a category. Get a free key at
+        <a href="https://aistudio.google.com" target="_blank" rel="noopener"
+          >aistudio.google.com</a
+        >
+        (starts with "AIzaSy"). Stored on this device only.
+      </p>
+      <div class="settings-row">
+        <input
+          type="password"
+          id="ai-key-input"
+          placeholder="Paste your Gemini API key"
+        />
+        <button id="save-ai-key-btn">Save</button>
+      </div>
+      <p id="ai-key-status" class="key-status"></p>
+    </section>
+
+    <main>
+      <input
+        type="text"
+        id="input-el"
+        placeholder="https://example.com"
+        autocomplete="off"
+      />
+
+      <div class="button-group">
+        <button id="input-btn">Save input</button>
+        <button id="save-tab-btn">Save current tab</button>
+        <button id="export-btn" class="secondary">Export</button>
+        <button id="import-btn" class="secondary">Import</button>
+      </div>
+      <input type="file" id="import-file" accept=".json" class="hidden" />
+
+      <p id="toast" class="toast hidden"></p>
+
+      <!-- Category list (home) -->
+      <section id="categories-view">
+        <div class="view-header">
+          <h2>Categories</h2>
+          <button id="new-category-btn" class="icon-btn" title="New category">
+            + New
+          </button>
+        </div>
+        <ul id="category-list"></ul>
+      </section>
+
+      <!-- Category detail -->
+      <section id="detail-view" class="hidden">
+        <div class="view-header">
+          <button id="back-btn" class="icon-btn" title="Back">← Back</button>
+          <h2 id="detail-title"></h2>
+        </div>
+        <div class="button-group detail-actions">
+          <button id="delete-selected-btn" class="secondary">
+            Delete selected
+          </button>
+          <button id="delete-category-links-btn" class="danger">
+            Delete all here
+          </button>
+        </div>
+        <ul id="ul-el"></ul>
+        <p id="empty-state" class="empty-state hidden">
+          No links in this category yet.
+        </p>
+      </section>
+    </main>
+
+    <script src="index.js"></script>
+  </body>
+</html>
