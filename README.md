@@ -2,11 +2,11 @@
 
 ### How it looks now
 
-<img width="440" alt="Link Saver current UI - categorized dark theme" src="Extention/Images/how-it-looks-now.png" />
+<img width="440" alt="Link Saver current UI - categorized dark theme" src="Extention/Images/How%20it%20looks.png" />
 
 ### How it used to look
 
-<img width="669" alt="Link Saver original UI - flat list" src="Extention/Images/how-it-used-to-look.png" />
+<img width="669" alt="Link Saver original UI - flat list" src="Extention/Images/How%20it%20used%20to%20look.png" />
 
 ## Overview
 
