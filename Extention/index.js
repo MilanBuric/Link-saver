@@ -116,12 +116,21 @@ const detailTitle = document.getElementById("detail-title");
 const backBtn = document.getElementById("back-btn");
 const newCategoryBtn = document.getElementById("new-category-btn");
 const toastEl = document.getElementById("toast");
+const searchInput = document.getElementById("search-input");
+const searchView = document.getElementById("search-view");
+const searchResultsEl = document.getElementById("search-results-el");
+const searchEmptyState = document.getElementById("search-empty-state");
+const sortSelect = document.getElementById("sort-select");
+const checkLinksBtn = document.getElementById("check-links-btn");
+const exportFormatSelect = document.getElementById("export-format");
+const importBookmarksBtn = document.getElementById("import-bookmarks-btn");
 
 // ---- State ----
 let myleads = [];
 let categories = [...DEFAULT_CATEGORIES];
 let currentCategory = null; // null = home/category-list view
 let toastTimer = null;
+let sortOrder = "newest";
 
 // ---- Init ----
 document.addEventListener("DOMContentLoaded", init);
@@ -132,12 +141,15 @@ async function init() {
     "categories",
     "tinyurlApiKey",
     "aiApiKey",
+    "sortOrder",
   ]);
   categories =
     stored.categories && stored.categories.length
       ? stored.categories
       : [...DEFAULT_CATEGORIES];
   myleads = stored.leads || [];
+  sortOrder = stored.sortOrder || "newest";
+  sortSelect.value = sortOrder;
 
   if (stored.tinyurlApiKey)
     keyStatus.textContent = "A key is saved on this device.";
@@ -160,6 +172,10 @@ async function migrateLeadsIfNeeded() {
     if (typeof lead !== "object" || lead === null) continue;
     if (!lead.id) {
       lead.id = generateId();
+      changed = true;
+    }
+    if (!lead.addedAt) {
+      lead.addedAt = Date.now();
       changed = true;
     }
     if (!lead.category) {
@@ -311,7 +327,13 @@ inputBtn.addEventListener("click", async () => {
   try {
     const title = await fetchPageTitle(inputValue);
     const { category } = await categorizeLead(title, inputValue);
-    myleads.push({ id: generateId(), url: inputValue, title, category });
+    myleads.push({
+      id: generateId(),
+      url: inputValue,
+      title,
+      category,
+      addedAt: Date.now(),
+    });
 
     await persistLeads();
     await persistCategories();
@@ -362,6 +384,7 @@ saveTabBtn.addEventListener("click", async () => {
       title,
       originalUrl: currentUrl,
       category,
+      addedAt: Date.now(),
     });
 
     await persistLeads();
@@ -413,17 +436,173 @@ function extractHostname(url) {
 }
 
 function renderCurrentView() {
-  if (currentCategory) {
+  if (searchInput.value.trim()) {
+    renderSearch();
+  } else if (currentCategory) {
     renderDetail();
   } else {
     renderCategories();
   }
 }
 
+function sortLeads(list, order) {
+  const copy = [...list];
+  switch (order) {
+    case "oldest":
+      return copy.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+    case "az":
+      return copy.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+    case "recent":
+      return copy.sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0));
+    case "newest":
+    default:
+      return copy.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  }
+}
+
+// Builds one <li> for a lead. showCategoryTag=true is used in the search
+// view, where items come from multiple categories at once.
+function buildLeadListItem(lead, { showCategoryTag = false } = {}) {
+  const li = document.createElement("li");
+
+  const checkboxWrapper = document.createElement("div");
+  checkboxWrapper.className = "checkbox-wrapper";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "lead-checkbox";
+  checkbox.dataset.id = lead.id;
+  checkboxWrapper.appendChild(checkbox);
+
+  const linkWrapper = document.createElement("div");
+  linkWrapper.className = "link-wrapper";
+
+  const a = document.createElement("a");
+  const url = lead.url;
+  const title = lead.title || extractHostname(lead.url);
+  const originalUrl = lead.originalUrl || url;
+
+  a.href = url;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  a.title = originalUrl;
+  a.addEventListener("click", () => {
+    lead.lastOpened = Date.now();
+    persistLeads();
+  });
+
+  const favicon = document.createElement("img");
+  favicon.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(originalUrl)}`;
+  favicon.width = 16;
+  favicon.height = 16;
+  favicon.style.marginRight = "8px";
+  favicon.alt = "";
+
+  a.appendChild(favicon);
+  a.appendChild(document.createTextNode(title));
+  linkWrapper.appendChild(a);
+
+  li.appendChild(checkboxWrapper);
+  li.appendChild(linkWrapper);
+
+  if (showCategoryTag) {
+    const tag = document.createElement("span");
+    tag.className = "category-tag";
+    tag.textContent = lead.category || "Other";
+    li.appendChild(tag);
+  }
+
+  const statusEl = document.createElement("span");
+  statusEl.className = `link-status ${lead.checkStatus || ""}`;
+  statusEl.title =
+    lead.checkStatus === "broken"
+      ? `Broken (status ${lead.checkStatusCode || "?"})`
+      : lead.checkStatus === "ok"
+        ? "Reachable"
+        : lead.checkStatus === "checking"
+          ? "Checking..."
+          : lead.checkStatus === "unknown"
+            ? "Couldn't verify"
+            : "Not checked yet";
+  statusEl.textContent =
+    lead.checkStatus === "broken"
+      ? "⚠"
+      : lead.checkStatus === "ok"
+        ? "✓"
+        : lead.checkStatus === "checking"
+          ? "…"
+          : lead.checkStatus === "unknown"
+            ? "?"
+            : "";
+  li.appendChild(statusEl);
+
+  if (!showCategoryTag) {
+    const moveSelect = document.createElement("select");
+    moveSelect.className = "move-select";
+    categories.forEach((cat) => {
+      const opt = document.createElement("option");
+      opt.value = cat;
+      opt.textContent = cat;
+      if (cat === lead.category) opt.selected = true;
+      moveSelect.appendChild(opt);
+    });
+    moveSelect.addEventListener("change", async () => {
+      lead.category = moveSelect.value;
+      await persistLeads();
+      renderCurrentView();
+    });
+    li.appendChild(moveSelect);
+  }
+
+  return li;
+}
+
+// ---- Search ----
+let searchDebounce = null;
+searchInput.addEventListener("input", () => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(renderCurrentView, 150);
+});
+
+function renderSearch() {
+  const query = searchInput.value.trim().toLowerCase();
+  categoriesView.classList.add("hidden");
+  detailView.classList.add("hidden");
+  searchView.classList.remove("hidden");
+
+  const matches = myleads.filter((lead) => {
+    if (typeof lead !== "object" || lead === null) return false;
+    const title = (lead.title || "").toLowerCase();
+    const url = (lead.url || "").toLowerCase();
+    const originalUrl = (lead.originalUrl || "").toLowerCase();
+    return (
+      title.includes(query) ||
+      url.includes(query) ||
+      originalUrl.includes(query)
+    );
+  });
+
+  const sorted = sortLeads(matches, sortOrder);
+  searchResultsEl.innerHTML = "";
+
+  if (sorted.length === 0) {
+    searchEmptyState.classList.remove("hidden");
+    return;
+  }
+  searchEmptyState.classList.add("hidden");
+
+  sorted.forEach((lead) => {
+    searchResultsEl.appendChild(
+      buildLeadListItem(lead, { showCategoryTag: true }),
+    );
+  });
+}
+
 // ---- Category list (home) ----
 function renderCategories() {
   categoriesView.classList.remove("hidden");
   detailView.classList.add("hidden");
+  searchView.classList.add("hidden");
   categoryList.innerHTML = "";
 
   categories.forEach((name) => {
@@ -506,94 +685,92 @@ newCategoryBtn.addEventListener("click", async () => {
 
 function openCategory(name) {
   currentCategory = name;
+  searchInput.value = "";
   renderDetail();
 }
 
 backBtn.addEventListener("click", () => {
   currentCategory = null;
+  searchInput.value = "";
   renderCategories();
 });
 
 // ---- Category detail ----
 function renderDetail() {
   categoriesView.classList.add("hidden");
+  searchView.classList.add("hidden");
   detailView.classList.remove("hidden");
   detailTitle.textContent = currentCategory;
 
-  const items = myleads
-    .map((lead, index) => ({ lead, index }))
-    .filter(
-      ({ lead }) =>
-        (typeof lead === "object" ? lead.category : "Other") ===
-        currentCategory,
-    );
+  const items = myleads.filter(
+    (lead) =>
+      (typeof lead === "object" ? lead.category : "Other") === currentCategory,
+  );
+  const sorted = sortLeads(items, sortOrder);
 
   ulEl.innerHTML = "";
 
-  if (items.length === 0) {
+  if (sorted.length === 0) {
     emptyState.classList.remove("hidden");
     return;
   }
   emptyState.classList.add("hidden");
 
-  items.forEach(({ lead }) => {
-    const li = document.createElement("li");
-
-    const checkboxWrapper = document.createElement("div");
-    checkboxWrapper.className = "checkbox-wrapper";
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.className = "lead-checkbox";
-    checkbox.dataset.id = lead.id;
-    checkboxWrapper.appendChild(checkbox);
-
-    const linkWrapper = document.createElement("div");
-    linkWrapper.className = "link-wrapper";
-
-    const a = document.createElement("a");
-    const url = lead.url;
-    const title = lead.title || extractHostname(lead.url);
-    const originalUrl = lead.originalUrl || url;
-
-    a.href = url;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    a.title = originalUrl;
-
-    const favicon = document.createElement("img");
-    favicon.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(originalUrl)}`;
-    favicon.width = 16;
-    favicon.height = 16;
-    favicon.style.marginRight = "8px";
-    favicon.alt = "";
-
-    a.appendChild(favicon);
-    a.appendChild(document.createTextNode(title));
-    linkWrapper.appendChild(a);
-
-    // Manual re-categorization
-    const moveSelect = document.createElement("select");
-    moveSelect.className = "move-select";
-    categories.forEach((cat) => {
-      const opt = document.createElement("option");
-      opt.value = cat;
-      opt.textContent = cat;
-      if (cat === lead.category) opt.selected = true;
-      moveSelect.appendChild(opt);
-    });
-    moveSelect.addEventListener("change", async () => {
-      lead.category = moveSelect.value;
-      await persistLeads();
-      renderDetail();
-    });
-
-    li.appendChild(checkboxWrapper);
-    li.appendChild(linkWrapper);
-    li.appendChild(moveSelect);
-    ulEl.appendChild(li);
+  sorted.forEach((lead) => {
+    ulEl.appendChild(buildLeadListItem(lead, { showCategoryTag: false }));
   });
 }
+
+sortSelect.addEventListener("change", async () => {
+  sortOrder = sortSelect.value;
+  await chrome.storage.local.set({ sortOrder });
+  renderCurrentView();
+});
+
+// ---- Broken-link checker ----
+checkLinksBtn.addEventListener("click", async () => {
+  if (!currentCategory) return;
+  const items = myleads.filter((l) => l.category === currentCategory);
+  if (items.length === 0) return;
+
+  checkLinksBtn.disabled = true;
+  checkLinksBtn.textContent = "Checking...";
+  items.forEach((lead) => {
+    lead.checkStatus = "checking";
+  });
+  renderDetail();
+
+  await Promise.all(
+    items.map(async (lead) => {
+      const targetUrl = lead.originalUrl || lead.url;
+      try {
+        const response = await fetch(targetUrl, {
+          method: "GET",
+          cache: "no-store",
+        });
+        lead.checkStatus = response.ok ? "ok" : "broken";
+        lead.checkStatusCode = response.status;
+      } catch (err) {
+        // Network failure, dead domain, or a site that blocks non-browser
+        // fetches — can't confirm broken vs. just unreachable from here.
+        lead.checkStatus = "unknown";
+      }
+      lead.lastChecked = Date.now();
+    }),
+  );
+
+  await persistLeads();
+  checkLinksBtn.disabled = false;
+  checkLinksBtn.textContent = "Check links";
+  renderDetail();
+
+  const brokenCount = items.filter((l) => l.checkStatus === "broken").length;
+  showToast(
+    brokenCount > 0
+      ? `${brokenCount} broken link(s) found.`
+      : "All links checked — none confirmed broken.",
+  );
+});
 
 // ---- TinyURL shortening ----
 async function shortenUrl(longUrl) {
@@ -656,15 +833,122 @@ saveAiKeyBtn.addEventListener("click", async () => {
 // ---- Export ----
 exportBtn.addEventListener("click", async () => {
   const { leads = [] } = await chrome.storage.local.get(["leads"]);
-  const dataStr =
-    "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(leads));
+  const format = exportFormatSelect.value;
+
+  let dataStr, filename, mime;
+
+  if (format === "markdown") {
+    const byCategory = {};
+    leads.forEach((lead) => {
+      const cat = (typeof lead === "object" && lead.category) || "Other";
+      (byCategory[cat] = byCategory[cat] || []).push(lead);
+    });
+    let md = "# Saved Links\n\n";
+    Object.keys(byCategory)
+      .sort()
+      .forEach((cat) => {
+        md += `## ${cat}\n\n`;
+        byCategory[cat].forEach((lead) => {
+          const url = typeof lead === "object" ? lead.url : lead;
+          const title =
+            (typeof lead === "object" && lead.title) || extractHostname(url);
+          md += `- [${title}](${url})\n`;
+        });
+        md += "\n";
+      });
+    dataStr = "data:text/markdown;charset=utf-8," + encodeURIComponent(md);
+    filename = "saved_links.md";
+  } else if (format === "html") {
+    // Netscape Bookmark format — importable into any browser.
+    let html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n`;
+    const byCategory = {};
+    leads.forEach((lead) => {
+      const cat = (typeof lead === "object" && lead.category) || "Other";
+      (byCategory[cat] = byCategory[cat] || []).push(lead);
+    });
+    Object.keys(byCategory)
+      .sort()
+      .forEach((cat) => {
+        html += `    <DT><H3>${escapeHtml(cat)}</H3>\n    <DL><p>\n`;
+        byCategory[cat].forEach((lead) => {
+          const url = typeof lead === "object" ? lead.url : lead;
+          const title =
+            (typeof lead === "object" && lead.title) || extractHostname(url);
+          html += `        <DT><A HREF="${escapeHtml(url)}">${escapeHtml(title)}</A>\n`;
+        });
+        html += `    </DL><p>\n`;
+      });
+    html += `</DL><p>\n`;
+    dataStr = "data:text/html;charset=utf-8," + encodeURIComponent(html);
+    filename = "saved_links_bookmarks.html";
+  } else {
+    dataStr =
+      "data:text/json;charset=utf-8," +
+      encodeURIComponent(JSON.stringify(leads));
+    filename = "saved_links.json";
+  }
 
   const a = document.createElement("a");
   a.setAttribute("href", dataStr);
-  a.setAttribute("download", "saved_links.json");
+  a.setAttribute("download", filename);
   document.body.appendChild(a);
   a.click();
   a.remove();
+});
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// ---- Import from Chrome bookmarks ----
+importBookmarksBtn.addEventListener("click", async () => {
+  importBookmarksBtn.disabled = true;
+  importBookmarksBtn.textContent = "Importing...";
+  try {
+    const tree = await chrome.bookmarks.getTree();
+    const flat = [];
+    const walk = (nodes) => {
+      for (const node of nodes) {
+        if (node.url) flat.push({ url: node.url, title: node.title });
+        if (node.children) walk(node.children);
+      }
+    };
+    walk(tree);
+
+    let added = 0;
+    for (const bm of flat) {
+      if (!bm.url || !/^https?:\/\//.test(bm.url) || isDuplicate(bm.url))
+        continue;
+
+      const { category } = await categorizeLead(bm.title, bm.url, {
+        allowAI: false,
+      });
+      myleads.push({
+        id: generateId(),
+        url: bm.url,
+        title: bm.title || extractHostname(bm.url),
+        originalUrl: bm.url,
+        category,
+        addedAt: Date.now(),
+      });
+      added++;
+    }
+
+    await persistLeads();
+    await persistCategories();
+    renderCurrentView();
+    showToast(`Imported ${added} bookmark(s).`);
+  } catch (err) {
+    console.error("Bookmark import failed:", err);
+    showToast("Couldn't read Chrome bookmarks.");
+  } finally {
+    importBookmarksBtn.disabled = false;
+    importBookmarksBtn.textContent = "Import Chrome bookmarks";
+  }
 });
 
 // ---- Import ----
@@ -708,6 +992,7 @@ importFile.addEventListener("change", () => {
           title: title || extractHostname(url),
           originalUrl,
           category,
+          addedAt: Date.now(),
         });
         added++;
       }

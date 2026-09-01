@@ -19,8 +19,8 @@
 body {
   margin: 0;
   padding: 14px;
-  width: 440px;
-  max-height: 600px;
+  width: 380px;
+  max-height: 560px;
   overflow-y: auto;
   font-family: "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
   background: var(--bg);
@@ -31,6 +31,7 @@ body {
   display: none !important;
 }
 
+/* Header */
 .app-header {
   display: flex;
   align-items: center;
@@ -74,6 +75,7 @@ body {
   font-size: 16px;
 }
 
+/* Settings panel */
 .settings-panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -127,6 +129,7 @@ body {
   color: #6fcf97;
 }
 
+/* Inputs */
 input[type="text"],
 input[type="password"] {
   width: 100%;
@@ -151,6 +154,7 @@ input[type="password"]:focus {
   border-color: var(--accent);
 }
 
+/* Buttons */
 button {
   background-color: var(--accent);
   color: white;
@@ -213,6 +217,7 @@ button.danger:hover {
   margin-top: 8px;
 }
 
+/* Toast */
 .toast {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -224,6 +229,7 @@ button.danger:hover {
   text-align: center;
 }
 
+/* View headers */
 .view-header {
   display: flex;
   align-items: center;
@@ -250,6 +256,7 @@ button.danger:hover {
   justify-content: flex-start;
 }
 
+/* Category list */
 #category-list {
   margin: 0;
   list-style-type: none;
@@ -321,11 +328,12 @@ button.danger:hover {
   background: transparent;
 }
 
+/* Link list (detail view) */
 ul#ul-el {
   margin: 0;
   list-style-type: none;
   padding: 0;
-  max-height: 340px;
+  max-height: 260px;
   overflow-y: auto;
 }
 
@@ -399,6 +407,53 @@ input[type="checkbox"].lead-checkbox {
   margin: 0;
 }
 
+#search-input {
+  background: var(--surface);
+}
+
+.format-select {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 100px;
+  padding: 9px 8px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius);
+  margin: 0;
+}
+
+.link-status {
+  flex-shrink: 0;
+  font-size: 11px;
+  width: 16px;
+  text-align: center;
+}
+
+.link-status.ok {
+  color: #6fcf97;
+}
+.link-status.broken {
+  color: #e6796d;
+}
+.link-status.unknown {
+  color: var(--text-muted);
+}
+.link-status.checking {
+  color: var(--accent-hover);
+}
+
+.category-tag {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
 .empty-state {
   text-align: center;
   color: var(--text-muted);
@@ -406,6 +461,7 @@ input[type="checkbox"].lead-checkbox {
   padding: 24px 0;
 }
 
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
 }

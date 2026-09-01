@@ -66,6 +66,13 @@
     <main>
       <input
         type="text"
+        id="search-input"
+        placeholder="Search all saved links..."
+        autocomplete="off"
+      />
+
+      <input
+        type="text"
         id="input-el"
         placeholder="https://example.com"
         autocomplete="off"
@@ -74,12 +81,33 @@
       <div class="button-group">
         <button id="input-btn">Save input</button>
         <button id="save-tab-btn">Save current tab</button>
+      </div>
+      <div class="button-group">
+        <select id="export-format" class="format-select">
+          <option value="json">JSON</option>
+          <option value="markdown">Markdown</option>
+          <option value="html">HTML Bookmarks</option>
+        </select>
         <button id="export-btn" class="secondary">Export</button>
-        <button id="import-btn" class="secondary">Import</button>
+      </div>
+      <div class="button-group">
+        <button id="import-btn" class="secondary">Import file</button>
+        <button id="import-bookmarks-btn" class="secondary">
+          Import Chrome bookmarks
+        </button>
       </div>
       <input type="file" id="import-file" accept=".json" class="hidden" />
 
       <p id="toast" class="toast hidden"></p>
+
+      <!-- Search results -->
+      <section id="search-view" class="hidden">
+        <div class="view-header">
+          <h2>Search results</h2>
+        </div>
+        <ul id="search-results-el"></ul>
+        <p id="search-empty-state" class="empty-state hidden">No matches.</p>
+      </section>
 
       <!-- Category list (home) -->
       <section id="categories-view">
@@ -97,6 +125,15 @@
         <div class="view-header">
           <button id="back-btn" class="icon-btn" title="Back">← Back</button>
           <h2 id="detail-title"></h2>
+        </div>
+        <div class="button-group detail-actions">
+          <select id="sort-select" class="format-select">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="az">A–Z</option>
+            <option value="recent">Recently opened</option>
+          </select>
+          <button id="check-links-btn" class="secondary">Check links</button>
         </div>
         <div class="button-group detail-actions">
           <button id="delete-selected-btn" class="secondary">
