@@ -61,6 +61,27 @@
         <button id="save-ai-key-btn">Save</button>
       </div>
       <p id="ai-key-status" class="key-status"></p>
+
+      <hr class="divider" />
+
+      <label for="sync-toggle-checkbox">Sync across devices (beta)</label>
+      <p class="hint">
+        Mirrors your links and categories through Chrome's built-in sync storage
+        so they show up on your other signed-in browsers. That storage is small
+        (~100KB total) — fine for most lists, but very large collections may not
+        fully fit, in which case sync fails quietly and your local copy stays
+        safe either way. Must be turned on separately on each device/browser you
+        want synced.
+      </p>
+      <label class="settings-row" style="align-items: center; cursor: pointer">
+        <input
+          type="checkbox"
+          id="sync-toggle-checkbox"
+          style="width: auto; margin: 0"
+        />
+        <span style="font-size: 12px">Enable sync on this device</span>
+      </label>
+      <p id="sync-status" class="key-status"></p>
     </section>
 
     <main>
@@ -98,7 +119,10 @@
       </div>
       <input type="file" id="import-file" accept=".json" class="hidden" />
 
-      <p id="toast" class="toast hidden"></p>
+      <div id="toast" class="toast hidden">
+        <span id="toast-message"></span>
+        <button id="toast-action-btn" class="toast-action hidden"></button>
+      </div>
 
       <!-- Search results -->
       <section id="search-view" class="hidden">
@@ -150,6 +174,8 @@
       </section>
     </main>
 
+    <script src="categorize.js"></script>
+    <script src="sync.js"></script>
     <script src="index.js"></script>
   </body>
 </html>

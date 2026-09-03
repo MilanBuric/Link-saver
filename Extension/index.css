@@ -226,7 +226,25 @@ button.danger:hover {
   padding: 8px 10px;
   border-radius: var(--radius);
   margin: -4px 0 12px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.toast-action {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent-hover);
+  width: auto;
+  padding: 4px 10px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.toast-action:hover {
+  background: var(--accent);
+  color: white;
 }
 
 /* View headers */
